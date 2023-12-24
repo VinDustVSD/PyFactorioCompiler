@@ -2,14 +2,16 @@ from enum import Enum
 
 
 class TokenKind(Enum):
-    NUMBER = [r"\d+(\.\d+)?"]
+    NUMBER_INT = [r"\d+"]
+    NUMBER_FLOAT = [r"\d+\.\d+"]
+    NUMBER_SCI_FORM = [r"\d+e([\+\-]?\d+)"]
 
     # Factorio(and f-cpu) special tokens
-    # SIGNAL = [
-    #     r"\[virtual\-signal=[\w\-]+\]",
-    #     r"\[item=[\w\-]+\]",
-    #     r"\[entity=[\w\-]+\]"
-    # ]
+    SIGNAL = [
+        r"\[virtual\-signal=[\w\-]+\]",
+        r"\[item=[\w\-]+\]",
+        r"\[entity=[\w\-]+\]"
+    ]
     WIRE_TYPE = [r"red", r"green"]
 
     # Keywords

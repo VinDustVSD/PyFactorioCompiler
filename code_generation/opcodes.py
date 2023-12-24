@@ -1,7 +1,7 @@
 import re
 from enum import Enum
 
-from code_generation.stacks import Register, TypeSignal, Signal, MemoryChannel, InputSelector, OutputSelector
+from code_generation.stacks import Register, TypeSignal, Signal, MemoryCell, InputSelector, OutputCell, Const
 
 
 class OpcodeKindRule:
@@ -33,13 +33,13 @@ class OpcodeKindRule:
 
 
 class OpcodeArgType(Enum):
-    C = int
+    C = Const
     T = TypeSignal
     CT = Signal
     R = Register
-    M = MemoryChannel
+    M = MemoryCell
     I = InputSelector
-    O = OutputSelector
+    O = OutputCell
 
     A = None
     L = None
@@ -71,6 +71,11 @@ class OpcodeKindRuleArg:
 
 
 class OpcodeKind(Enum):
+    add = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ + _val_")
+    sub = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ - _val_")
+    mul = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ * _val_")
+    div = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ / _val_")
+    pow = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ ^ _val_")
     n_comment = None
     n_label = None
     nop = OpcodeKindRule("# No operation")
@@ -81,7 +86,7 @@ class OpcodeKind(Enum):
 
 
 class Instruction:
-    def __init__(self, kind: OpcodeKind, args: list['Register']):
+    def __init__(self, kind: OpcodeKind, args: list['Register', int, float]):
         self.kind = kind
         self.args = args
         self.kind.value.assert_unfit_args(args)

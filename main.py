@@ -42,6 +42,8 @@ def main():
     print("Opcodes:")
     [print("  ", opcode) for opcode in opcodes]
 
+    # TODO: Generation of intermediate code (maybe stack-based) (Sequence of actions)
+
 
 if __name__ == '__main__':
     main()

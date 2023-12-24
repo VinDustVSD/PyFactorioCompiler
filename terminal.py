@@ -2,6 +2,10 @@ from typing import Type, Optional, TYPE_CHECKING
 
 from rply import ParserGenerator, Token
 
+from code_generation.code_generator import CodeGenFrame, Variable
+from code_generation.opcodes import Instruction, OpcodeKind
+from code_generation.stacks import Register, MemoryCell, Const
+
 if TYPE_CHECKING:
     from ast_evaluator import ExecutionFrame
 
@@ -16,6 +20,9 @@ class Terminal:
     def evaluate(self, frame: 'ExecutionFrame'):
         raise NotImplementedError(f"Evaluating not implemented in {self.__class__}.")
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        raise NotImplementedError(f"Opcode generation not implemented in {self.__class__}.")
+
 
 class Example(Terminal):
     def __init__(self):
@@ -29,6 +36,9 @@ class Example(Terminal):
 
     def evaluate(self, frame: 'ExecutionFrame'):
         super().evaluate(frame)
+
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
 
 
 class Program(Terminal):
@@ -54,6 +64,9 @@ class Program(Terminal):
     def evaluate(self, frame: 'ExecutionFrame'):
         return self.entry_point.evaluate(frame)
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
+
 
 class DefArgument(Terminal):
     def __init__(self, name, wire="red"):
@@ -72,6 +85,9 @@ class DefArgument(Terminal):
 
     def evaluate(self, frame: 'ExecutionFrame'):
         super().evaluate(frame)
+
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
 
 
 class DefArgs(Terminal):
@@ -97,6 +113,9 @@ class DefArgs(Terminal):
     def evaluate(self, frame: 'ExecutionFrame'):
         super().evaluate(frame)
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
+
 
 class SepCollectorDefArgs(Terminal):
     def __init__(self, item: DefArgument, previous: 'SepCollectorDefArgs'):
@@ -117,6 +136,9 @@ class SepCollectorDefArgs(Terminal):
     def evaluate(self, frame: 'ExecutionFrame'):
         super().evaluate(frame)
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
+
 
 class Function(Terminal):
     def __init__(self, name: Token, args: DefArgs, body: 'Body'):
@@ -133,6 +155,19 @@ class Function(Terminal):
     def evaluate(self, frame: 'ExecutionFrame'):
         frame.new_frame()
         return self.body.evaluate(frame)
+
+    def generate_opcodes(self, frame: CodeGenFrame):
+        for arg in self.args.items:
+            reg = frame.reg_stack.pop()
+            sig = frame.sig_stack.pop()
+            frame.push_opcode(Instruction(
+                OpcodeKind.fig if arg.wire == "green" else OpcodeKind.fir,
+                [reg, sig]
+            ))
+
+        frame.open_frame()
+        self.body.generate_opcodes(frame.current_frame)
+        frame.close_frame()
 
 
 class Body(Terminal):
@@ -157,6 +192,12 @@ class Body(Terminal):
             if item.name == Return.name:
                 return output
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        for item in self.items:
+            frame.open_frame()
+            item.generate_opcodes(frame.current_frame)
+            frame.close_frame()
+
 
 class Statement(Terminal):
     def __init__(self, value: Terminal):
@@ -174,6 +215,9 @@ class Statement(Terminal):
         self.value.evaluate(frame)
         return 0
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        super().generate_opcodes(frame)
+
 
 class Return(Terminal):
     def __init__(self, value: 'Expression'):
@@ -190,10 +234,26 @@ class Return(Terminal):
         frame.close_frame()
         return output
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        # TODO: Return value of custom function
+        frame.open_frame()
+        self.value.generate_opcodes(frame.current_frame)
+        out_storage = frame.close_frame().return_storage
+
+        frame.data.out_stack.dispose_all()
+        if out_storage:
+            frame.push_opcode(Instruction(
+                OpcodeKind.mov,
+                [
+                    frame.data.out_stack.pop(),
+                    out_storage
+                ]
+            ))
+
 
 class Assign(Terminal):
     def __init__(self, name: Token, value: 'Expression'):
-        self.a_name = name
+        self.a_name = name.value
         self.value = value
 
     @staticmethod
@@ -204,7 +264,16 @@ class Assign(Terminal):
 
     def evaluate(self, frame: 'ExecutionFrame'):
         value = self.value.evaluate(frame)
-        frame.set_local(self.a_name.value, value)
+        frame.set_local(self.a_name, value)
+
+    def generate_opcodes(self, frame: CodeGenFrame):
+        frame.open_frame()
+        self.value.generate_opcodes(frame.current_frame)
+        value_frame = frame.close_frame()
+
+        # SemanticAnalyzer must check if assign expression returns value, right?
+        var = Variable(self.a_name, value_frame.return_storage)
+        frame.set_local(self.a_name, var)
 
 
 class Expression(Terminal):
@@ -246,19 +315,63 @@ class Expression(Terminal):
 
         return operator(self.left.evaluate(frame), self.right.evaluate(frame))
 
+    def generate_opcodes(self, frame: CodeGenFrame):
+        frame.open_frame()
+        self.left.generate_opcodes(frame.current_frame)
+        left_reg_or_val = frame.close_frame().return_storage
+
+        frame.open_frame()
+        self.right.generate_opcodes(frame.current_frame)
+        right_reg_or_val = frame.close_frame().return_storage
+
+        if isinstance(left_reg_or_val, Register) or isinstance(left_reg_or_val, MemoryCell):
+            output_register = left_reg_or_val
+
+        elif isinstance(right_reg_or_val, Register) or isinstance(right_reg_or_val, MemoryCell):
+            output_register = right_reg_or_val
+
+        else:
+            output_register = frame.reg_stack.pop()
+
+        opcode = Instruction(
+            {
+                "OP_SUM": OpcodeKind.add,
+                "OP_SUB": OpcodeKind.sub,
+                "OP_MUL": OpcodeKind.mul,
+                "OP_DIV": OpcodeKind.div,
+                "OP_POW": OpcodeKind.pow,
+            }[self.operator.name],
+            [
+                output_register,
+                left_reg_or_val,
+                right_reg_or_val,
+            ]
+        )
+
+        frame.return_storage = output_register
+        frame.push_opcode(opcode)
+
 
 class NumberLiteral(Terminal):
-    def __init__(self, token: Token):
-        self.token = token
+    def __init__(self, value: int | float):
+        self.value = value
 
     @staticmethod
     def gen_productions(this: Type[Terminal], gen: ParserGenerator):
-        @gen.production(f"{this.name} : NUMBER")
-        def example_def(p: list[Token | Terminal]):
-            return NumberLiteral(p[0])
+        @gen.production(f"{this.name} : NUMBER_INT")
+        def example_def(p: tuple[Token]):
+            return NumberLiteral(int(p[0].value))
+
+        @gen.production(f"{this.name} : NUMBER_FLOAT")
+        @gen.production(f"{this.name} : NUMBER_SCI_FORM")
+        def example_def(p: tuple[Token]):
+            return NumberLiteral(float(p[0].value))
 
     def evaluate(self, frame: 'ExecutionFrame'):
-        return int(self.token.value)
+        return self.value
+
+    def generate_opcodes(self, frame: CodeGenFrame):
+        frame.return_storage = Const(self.value)
 
 
 all_terminals: dict[str, Type[Terminal]] = {}

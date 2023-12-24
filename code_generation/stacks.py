@@ -2,6 +2,49 @@ from enum import Enum
 from string import ascii_uppercase, digits
 
 
+class BaseStack:
+    def __init__(self, items):
+        self._items = items
+        self._available = list(self._items)
+
+    @property
+    def available(self):
+        return list(self._available)
+
+    @property
+    def reserved(self):
+        return list(filter(lambda a: a.reserved, self._items))
+
+    def pop(self, index: int = 0):
+        return self._available.pop(index)
+
+    def dispose(self, item):
+        if not isinstance(item, TypeSignal):
+            raise TypeError(f"Arg1 must be item class, got {type(item)}")
+
+        if item not in self._items:
+            raise ValueError("Can't dispose item to not it's own stack.")
+
+        self._available.append(item)
+
+
+class BaseStackItem:
+    def __init__(self, index: int, stack: BaseStack):
+        self._idx = index
+        self._stack = stack
+
+    @property
+    def idx(self):
+        return self._idx
+
+    @property
+    def reserved(self):
+        return self not in self._stack.available
+
+    def dispose(self):
+        self._stack.dispose(self)
+
+
 class SignalStack:
     def __init__(self, signals: dict['TypeSignalKind', list[str]]):
         self._signals = tuple(
@@ -22,10 +65,10 @@ class SignalStack:
 
     def dispose(self, sig: 'TypeSignal'):
         if not isinstance(sig, TypeSignal):
-            raise TypeError(f"Arg1 must be sig class, got {type(sig)}")
+            raise TypeError(f"Arg1 must be item class, got {type(sig)}")
 
         if sig not in self._signals:
-            raise ValueError("Can't dispose sig to not it's own stack.")
+            raise ValueError("Can't dispose item to not it's own stack.")
 
         self._available.append(sig)
 
@@ -66,14 +109,48 @@ class MemoryChannel:
         pass
 
 
+class MemoryCell:
+    def __init__(self):
+        pass
+
+
 class InputSelector:
     def __init__(self):
         pass
 
 
-class OutputSelector:
+class Const:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return str(self.value)
+
+
+class OutputStack(BaseStack):
     def __init__(self):
-        pass
+        items = tuple(OutputCell(i + 1, self) for i in range(256))
+        super().__init__(items)
+
+    def dispose_all(self):
+        for item in self.reserved:
+            item: OutputCell = item
+            if item.reserved:
+                self.dispose(item)
+
+    def pop(self, index: int = 0) -> 'OutputCell':
+        return super().pop(index)
+
+    def dispose(self, item: 'OutputCell'):
+        super().dispose(item)
+
+
+class OutputCell(BaseStackItem):
+    def __init__(self, index: int, stack: BaseStack):
+        super().__init__(index, stack)
+
+    def __repr__(self):
+        return f"out{self._idx}"
 
 
 class RegisterStack:
@@ -94,10 +171,10 @@ class RegisterStack:
 
     def dispose(self, register: 'Register'):
         if not isinstance(register, Register):
-            raise TypeError(f"Arg1 must be sig class, got {type(register)}")
+            raise TypeError(f"Arg1 must be item class, got {type(register)}")
 
         if register not in self._registers:
-            raise ValueError("Can't dispose sig to not it's own stack.")
+            raise ValueError("Can't dispose item to not it's own stack.")
 
         self._available.append(register)
 
