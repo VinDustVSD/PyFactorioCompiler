@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
 
 from code_generation.opcodes import Instruction
-from code_generation.stacks import RegisterStack, SignalStack, TypeSignalKind, OutputStack
+from code_generation.stacks import RegisterStack, SignalStack, TypeSignalKind, OutputStack, Register
 from settings import CompilerSettings, CompilationTarget
 
 if TYPE_CHECKING:
-    from terminal import Program
+    from terminal import Program, Variable
 
 
 class CodeGenFrame:
@@ -19,6 +19,13 @@ class CodeGenFrame:
     @property
     def reg_stack(self):
         return self.data.reg_stack
+
+    def try_pop_reg(self, index: int):
+        if len(self.reg_stack.available) == 0:
+            reg_vars = filter(lambda a: isinstance(a.n_storage_, Register), self.data.locals.values())
+            var: Variable = list(reg_vars)[0]
+
+        return self.reg_stack.pop(index)
 
     @property
     def sig_stack(self):
@@ -67,6 +74,10 @@ class CodeGenData:
     @property
     def last_archive_frame(self):
         return self._frame_archive[-1] if len(self._frame_archive) > 0 else None
+
+    @property
+    def registers_in_locals(self):
+        return [i.n_storage_ for i in self.locals.values()]
 
     @property
     def current_frame(self):

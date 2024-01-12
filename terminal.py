@@ -45,12 +45,14 @@ class Example(Terminal):
 class Program(Terminal):
     def __init__(self, function: 'Function'):
         # TODO: Define multiple functions and call it
-        self.n_functions = {function.a_name: function}
+        self.n_functions: dict[str, 'Function'] = {function.a_name: function}
         self.n_entry_point_name = "Main"
         self.functions = list(self.n_functions.values())
 
         if self.n_entry_point_name not in self.n_functions:
             raise NotImplementedError(f"No entry_point (function called '{self.n_entry_point_name}').")
+
+        self.n_functions[self.n_entry_point_name].n_is_entry_point = True
 
     @staticmethod
     def gen_productions(this: Type[Terminal], gen: ParserGenerator):
@@ -151,6 +153,7 @@ class Function(Terminal):
         self.a_name: str = name.value
         self.args = args
         self.body = body
+        self.n_is_entry_point = False
 
     @staticmethod
     def gen_productions(this: Type[Terminal], gen: ParserGenerator):
@@ -165,6 +168,9 @@ class Function(Terminal):
         return self.body.evaluate(frame)
 
     def generate_opcodes(self, frame: CodeGenFrame):
+        if self.n_is_entry_point:
+            frame.push_opcode(Instruction(OpcodeKind.clr, []))
+
         args = {arg.arg_name.value: arg for arg in self.args.items}
 
         def on_get_storage(variable):
@@ -192,10 +198,10 @@ class Function(Terminal):
         for arg in self.args.items:
             var = Variable(arg.arg_name.value, None)
             var.n_on_get_storage = on_get_storage
+            var.n_on_get_storage(var)
             frame.set_local(arg.arg_name.value, var)
 
-        frame.open_frame()
-        self.body.generate_opcodes(frame.current_frame)
+        self.body.generate_opcodes(frame.open_frame())
         frame.close_frame()
 
 
@@ -348,8 +354,8 @@ class Assign(Terminal):
     def generate_opcodes(self, frame: CodeGenFrame):
         self.value.generate_opcodes(frame.open_frame())
         value_frame = frame.close_frame()
-        if frame.data.locals.get(self.a_name):
-            reg = frame.data.locals[self.a_name].n_storage
+        if self.a_name in frame.data.locals:
+            reg = frame.get(self.a_name).n_storage
 
         else:
             reg = frame.reg_stack.pop()
@@ -574,7 +580,7 @@ class UnaryExpr(Terminal):
         operator = OpcodeKind.inc if self.operator.name == TokenKind.INCREMENT.name else OpcodeKind.dec
         frame.push_opcode(Instruction(
             operator,
-            [frame.data.locals[self.identifier].n_storage]
+            [frame.get(self.identifier).n_storage]
         ))
 
 
@@ -637,10 +643,10 @@ class Expression(Terminal):
 
     def generate_opcodes(self, frame: CodeGenFrame):
         if isinstance(self.left, Variable) and self.left.a_name in frame.data.locals:
-            self.left = frame.data.locals[self.left.a_name]
+            self.left = frame.get(self.left.a_name)
 
         if isinstance(self.right, Variable) and self.right.a_name in frame.data.locals:
-            self.right = frame.data.locals[self.right.a_name]
+            self.right = frame.get(self.right.a_name)
 
         frame.open_frame()
         self.left.generate_opcodes(frame.current_frame)
@@ -650,12 +656,18 @@ class Expression(Terminal):
         self.right.generate_opcodes(frame.current_frame)
         right_reg_or_val = frame.close_frame().return_storage
 
-        if isinstance(left_reg_or_val, Register) or isinstance(left_reg_or_val, MemoryCell):
+        if (
+            (isinstance(left_reg_or_val, Register) or isinstance(left_reg_or_val, MemoryCell)) and
+            left_reg_or_val not in frame.data.registers_in_locals
+        ):
             output_register = left_reg_or_val
-            if isinstance(right_reg_or_val, Register):
+            if isinstance(right_reg_or_val, Register) and right_reg_or_val not in frame.data.registers_in_locals:
                 right_reg_or_val.dispose()
 
-        elif isinstance(right_reg_or_val, Register) or isinstance(right_reg_or_val, MemoryCell):
+        elif (
+            (isinstance(right_reg_or_val, Register) or isinstance(right_reg_or_val, MemoryCell)) and
+            right_reg_or_val not in frame.data.registers_in_locals
+        ):
             output_register = right_reg_or_val
 
         else:
@@ -718,7 +730,7 @@ class Variable(Terminal):
 
     def generate_opcodes(self, frame: CodeGenFrame):
         if self.a_name in frame.data.locals:
-            self.n_storage_ = frame.data.locals[self.a_name].n_storage
+            self.n_storage_ = frame.get(self.a_name).n_storage
 
         frame.return_storage = self.n_storage_
 

@@ -109,14 +109,40 @@ class Signal:
         pass
 
 
-class MemoryChannel:
-    def __init__(self):
-        pass
+class MemoryChannel(BaseStackItem):
+    def __init__(self, index: int, stack: BaseStack):
+        super().__init__(index, stack)
+        self._idx = index
+        self._stack = stack
+
+    @property
+    def idx(self):
+        return self._idx
+
+    @property
+    def reserved(self):
+        return self not in self._stack.available
+
+    def dispose(self):
+        self._stack.dispose(self)
 
 
-class MemoryCell:
-    def __init__(self):
-        pass
+class MemoryCell(BaseStackItem):
+    def __init__(self, index: int, stack: BaseStack):
+        super().__init__(index, stack)
+        self._idx = index
+        self._stack = stack
+
+    @property
+    def idx(self):
+        return self._idx
+
+    @property
+    def reserved(self):
+        return self not in self._stack.available
+
+    def dispose(self):
+        self._stack.dispose(self)
 
 
 class InputSelector:

@@ -1,9 +1,3 @@
-# print("Hello world")
-# import sys
-#
-# print(f"Package: {__package__}\nVersion: {ascii(sys.version)}\nVerInfo: {sys.version_info}\nSysPath:")
-# [print(f"\t{path}") for path in sys.path]
-
 from analyzers import Parser, Lexer
 from ast_evaluator import AstEvaluator
 from code_generation.code_generator import CodeGenerator
@@ -30,8 +24,6 @@ def compile_file(path: str):
     # print("AST:")
     # print(TerminalUtil.get_pretty(term))
     # print()
-    import sys
-    print("SysArgs", sys.argv)
 
     print("Evaluating")
     evaluator = AstEvaluator()
