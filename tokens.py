@@ -61,6 +61,7 @@ class TokenKind(Enum):
     OP_SUB = [r"\-"]
     OP_MUL = [r"\*"]
     OP_DIV = [r"\/"]
+    OP_MOD = [r"\%"]
 
     # Other
     IDENTIFIER = [r"\w+"]

@@ -120,6 +120,7 @@ class OpcodeKind(Enum):
     sub = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ - _val_")
     mul = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ * _val_")
     div = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ / _val_")
+    mod = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ % _val_")
     pow = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ ^ _val_")
     n_comment = OpcodeKindRule("")
     n_label = OpcodeKindRule("")

@@ -602,6 +602,7 @@ class Expression(Terminal):
         @gen.production(f"{this.name} : {this.name} OP_SUB {this.name}")
         @gen.production(f"{this.name} : {this.name} OP_MUL {this.name}")
         @gen.production(f"{this.name} : {this.name} OP_DIV {this.name}")
+        @gen.production(f"{this.name} : {this.name} OP_MOD {this.name}")
         @gen.production(f"{this.name} : {this.name} OP_POW {this.name}")
         def expr_binary(p):
             return Expression(*p)
@@ -661,6 +662,7 @@ class Expression(Terminal):
                 "OP_SUB": OpcodeKind.sub,
                 "OP_MUL": OpcodeKind.mul,
                 "OP_DIV": OpcodeKind.div,
+                "OP_MOD": OpcodeKind.mod,
                 "OP_POW": OpcodeKind.pow,
             }[self.operator.name],
             [
