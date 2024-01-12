@@ -187,7 +187,7 @@ class RegisterStack:
         if register not in self._registers:
             raise ValueError("Can't dispose item to not it's own stack.")
 
-        self._available.append(register)
+        self._available.insert(0, register)
 
 
 class Register:

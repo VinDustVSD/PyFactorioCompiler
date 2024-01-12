@@ -346,10 +346,13 @@ class Assign(Terminal):
         frame.set_local(self.a_name, value)
 
     def generate_opcodes(self, frame: CodeGenFrame):
-        frame.open_frame()
-        self.value.generate_opcodes(frame.current_frame)
+        self.value.generate_opcodes(frame.open_frame())
         value_frame = frame.close_frame()
-        reg = value_frame.return_storage
+        if frame.data.locals.get(self.a_name):
+            reg = frame.data.locals[self.a_name].n_storage
+
+        else:
+            reg = frame.reg_stack.pop()
 
         if isinstance(reg, Const):
             reg = frame.reg_stack.pop()
@@ -649,6 +652,8 @@ class Expression(Terminal):
 
         if isinstance(left_reg_or_val, Register) or isinstance(left_reg_or_val, MemoryCell):
             output_register = left_reg_or_val
+            if isinstance(right_reg_or_val, Register):
+                right_reg_or_val.dispose()
 
         elif isinstance(right_reg_or_val, Register) or isinstance(right_reg_or_val, MemoryCell):
             output_register = right_reg_or_val
