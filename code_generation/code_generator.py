@@ -2,15 +2,10 @@ from typing import TYPE_CHECKING
 
 from code_generation.opcodes import Instruction
 from code_generation.stacks import RegisterStack, SignalStack, TypeSignalKind, OutputStack
+from settings import CompilerSettings, CompilationTarget
 
 if TYPE_CHECKING:
     from terminal import Program
-
-
-class Variable:
-    def __init__(self, name, storage):
-        self.name = name
-        self.storage = storage
 
 
 class CodeGenFrame:
@@ -53,13 +48,21 @@ class CodeGenFrame:
 class CodeGenData:
     def __init__(self):
         self.reg_stack = RegisterStack()
-        self.sig_stack = SignalStack({TypeSignalKind.virtual: TypeSignalKind.virtual.value})
+        self.sig_stack = SignalStack({
+            TypeSignalKind.virtual_signal: TypeSignalKind.virtual_signal.value,
+            TypeSignalKind.item: TypeSignalKind.item.value
+        })
         self.out_stack = OutputStack()
         self.opcodes = []
         self.globals = {}
         self.locals = {}
+        self.settings: CompilerSettings = CompilerSettings(CompilationTarget.raw_fcpu)
         self._frame_archive: list[CodeGenFrame] = []
         self._frame_stack: list[CodeGenFrame] = [CodeGenFrame(self)]
+        self.label_counter: dict[str, int] = {
+            "loop_for": 0,
+            "if": 0
+        }
 
     @property
     def last_archive_frame(self):
@@ -88,26 +91,8 @@ class CodeGenData:
 
 
 class CodeGenerator:
-    def __init__(self):
-        pass
-
     @staticmethod
     def generate_code(ast: 'Program', entry_point_name="Main"):
         env = CodeGenData()
         ast.entry_point.generate_opcodes(env.current_frame)
-
-        # TODO: Take it to Terminals
-        # for arg in ast.entry_point.args.items:
-        #     reg = reg_stack.pop()
-        #     opcodes.append(Instruction(
-        #         OpcodeKind.fig if arg.wire == "green" else OpcodeKind.fir,
-        #         [reg, sig_stack.pop()]
-        #     ))
-        #
-        # for statement in ast.entry_point.body.items:
-        #     if statement.name == Assign.name:
-        #         ...
-        #     elif ...:
-        #         ...
-
         return env.opcodes

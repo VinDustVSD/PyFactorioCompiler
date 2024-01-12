@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+from typing import Union
 
 from code_generation.stacks import Register, TypeSignal, Signal, MemoryCell, InputSelector, OutputCell, Const
 
@@ -32,6 +33,35 @@ class OpcodeKindRule:
         return True
 
 
+class Instruction:
+    def __init__(self, kind: 'OpcodeKind', args: list[Union['Register', 'Const', 'Label']]):
+        self.kind = kind
+        self.args = args
+        if isinstance(self.kind.value, OpcodeKindRule):
+            self.kind.value.assert_unfit_args(args)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.kind.name} {' '.join(map(str, self.args))})"
+
+    def to_string(self):
+        return f"{self.kind.name} {' '.join(map(str, self.args))}"
+
+
+class Label(Instruction):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(OpcodeKind.n_label, [])
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(:{self.name})"
+
+    def __str__(self):
+        return ":" + self.name
+
+    def to_string(self):
+        return str(self)
+
+
 class OpcodeArgType(Enum):
     C = Const
     T = TypeSignal
@@ -41,8 +71,8 @@ class OpcodeArgType(Enum):
     I = InputSelector
     O = OutputCell
 
-    A = None
-    L = None
+    A = int
+    L = Label
     S = None
 
 
@@ -71,25 +101,30 @@ class OpcodeKindRuleArg:
 
 
 class OpcodeKind(Enum):
+    jmp = OpcodeKindRule("addr[C/A/L/R] # Jump to addr or label")
+    dec = OpcodeKindRule("dst[R] # dst = dst + 1")
+    inc = OpcodeKindRule("dst[R] # dst = dst - 1")
+    ble = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a <= b then jmp addr offset")
+    bge = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a >= b then jmp addr offset")
+    blt = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a < b then jmp addr offset")
+    bgt = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a > b then jmp addr offset")
+    beq = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a == b then jmp addr offset")
+    bne = OpcodeKindRule("a[C/S/R] b[C/S/R] addr[C/A/L/R] # if a != b then jmp addr offset")
+    tle = OpcodeKindRule("a[C/S/R] b[C/S/R] # a <= b")
+    tge = OpcodeKindRule("a[C/S/R] b[C/S/R] # a >= b")
+    tlt = OpcodeKindRule("a[C/S/R] b[C/S/R] # a < b")
+    tgt = OpcodeKindRule("a[C/S/R] b[C/S/R] # a < b")
+    teq = OpcodeKindRule("a[C/S/R] b[C/S/R] # a == b")
+    tne = OpcodeKindRule("a[C/S/R] b[C/S/R] # a != b")
     add = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ + _val_")
     sub = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ - _val_")
     mul = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ * _val_")
     div = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ / _val_")
     pow = OpcodeKindRule("dst[R] src[C/R] val[C/R] # _dst_ = _src_ ^ _val_")
-    n_comment = None
-    n_label = None
+    n_comment = OpcodeKindRule("")
+    n_label = OpcodeKindRule("")
     nop = OpcodeKindRule("# No operation")
-    clr = None
+    clr = OpcodeKindRule("# Clear")
     mov = OpcodeKindRule("dst...[R/O] val[C/T/CT/R] # Copy signal from source to destination")
     fir = OpcodeKindRule("dst[R/O] type[T/R] # Find _type_ in red_input, then assign to _dst_")
     fig = OpcodeKindRule("dst[R/O] type[T/R] # Find _type_ in green_input, then assign to _dst_")
-
-
-class Instruction:
-    def __init__(self, kind: OpcodeKind, args: list['Register', int, float]):
-        self.kind = kind
-        self.args = args
-        self.kind.value.assert_unfit_args(args)
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.kind.name} {' '.join(map(str, self.args))})"

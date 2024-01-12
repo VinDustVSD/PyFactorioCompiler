@@ -47,9 +47,13 @@ class BaseStackItem:
 
 class SignalStack:
     def __init__(self, signals: dict['TypeSignalKind', list[str]]):
-        self._signals = tuple(
-            TypeSignal(i, self, kind, sig_name) for i, kind in enumerate(signals) for sig_name in signals[kind]
-        )
+        self._signals = []
+        i = 0
+        for kind in signals:
+            for sig_name in signals[kind]:
+                self._signals.append(TypeSignal(i, self, kind, sig_name))
+                i += 1
+
         self._available = list(self._signals)
 
     @property
@@ -74,7 +78,8 @@ class SignalStack:
 
 
 class TypeSignalKind(Enum):
-    virtual = ascii_uppercase + digits
+    virtual_signal = ["signal-" + char for char in ascii_uppercase + digits]
+    item = ["iron-plate", "copper-plate", "solid-fuel", "steel-plate", "plastic-bar", "coal", "stone", "iron-ore", "copper-ore", "uranium-ore", "raw-fish", "wood", "copper-cable", "iron-gear-wheel", "iron-stick"]
 
 
 class TypeSignal:
@@ -85,7 +90,7 @@ class TypeSignal:
         self.sig_name = sig_name
 
     def __repr__(self):
-        return f"[{self.sig_type.name}-{self.sig_name}]"
+        return f"[{self.sig_type.name}={self.sig_name}]".replace("_", "-")
 
     @property
     def idx(self):
@@ -142,7 +147,13 @@ class OutputStack(BaseStack):
         return super().pop(index)
 
     def dispose(self, item: 'OutputCell'):
-        super().dispose(item)
+        if not isinstance(item, OutputCell):
+            raise TypeError(f"Arg1 must be item class, got {type(item)}")
+
+        if item not in self._items:
+            raise ValueError("Can't dispose item to not it's own stack.")
+
+        self._available.append(item)
 
 
 class OutputCell(BaseStackItem):
