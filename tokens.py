@@ -64,4 +64,5 @@ class TokenKind(Enum):
     OP_MOD = [r"\%"]
 
     # Other
+    STRING = [r'"\w*"']
     IDENTIFIER = [r"\w+"]

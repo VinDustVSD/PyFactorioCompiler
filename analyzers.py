@@ -4,7 +4,8 @@ from rply import ParserGenerator, LexerGenerator, Token, ParsingError
 from rply.lexer import LexerStream, Lexer as _Lexer
 
 from exceptions import ParsingException
-from terminal import all_terminals, Terminal
+from terminal import all_terminals
+from terminal.base import Terminal
 from tokens import TokenKind
 
 
@@ -14,6 +15,9 @@ class Lexer(_Lexer):
         for token in TokenKind:
             for pattern in token.value:
                 gen.add(token.name, pattern)
+
+        gen.ignore(r"\/\/[^\x00\n]*")
+        gen.ignore(r"\/\*[^\x00]*\*\/")
         gen.ignore(r"\s")
 
         self._lexer = gen.build()

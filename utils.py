@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from terminal import Terminal
+from terminal.base import Terminal
 
 
 class TerminalUtil:

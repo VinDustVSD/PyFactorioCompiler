@@ -1,4 +1,4 @@
-from terminal import Terminal
+from terminal.base import Terminal
 
 
 class ExecutionFrame:
